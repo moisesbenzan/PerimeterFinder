@@ -21,6 +21,7 @@ def log_verbose(s):
 
 def init_parser():
     parser = argparse.ArgumentParser(
+        prog=VERSION,
         description='Finds the exposed network perimeter of a domain.')
 
     parser.add_argument('--version',
@@ -28,22 +29,28 @@ def init_parser():
                         version=VERSION,
                         help="Prints the version information and exits.")
 
-    parser.add_argument('--target', "-t",
-                        action="append",
-                        help="Target domain to search for subdomains.")
-
-    parser.add_argument("--interactive",
-                        action="store_true",
-                        help="Launches the script in interactive mode.")
-
     parser.add_argument("--verbose", "-v",
                         action="store_true",
                         default=False,
                         help="Makes output verbose. Might get messy output.")
 
-    parser.add_argument("--extended-results",
+    parser.add_argument("--extended-results", "-A",
                         action="store_true",
                         help="Parses more dns information from external databases.")
+
+    mutually_exclusive = parser.add_mutually_exclusive_group(required=True)
+
+    mutually_exclusive.add_argument("--interactive",
+                                    action="store_true",
+                                    help="Launches the script in interactive mode.")
+
+    mutually_exclusive.add_argument('--target', "-t",
+                                    action="append",
+                                    help="Target domain to search for subdomains.")
+
+    mutually_exclusive.add_argument("--target-list", "-T",
+                                    action="store",
+                                    help="Load targets from a file. One target per line")
 
     return parser
 
@@ -107,7 +114,6 @@ def get_dnsdumpster_perimeter(domain):
 
 
 def get_ssl_perimeter(pattern):
-
     per = set()
 
     payload = {'q': pattern}
@@ -150,6 +156,7 @@ def interactive():
         except Exception as e:
             log_verbose("Error, {}".format(e))
             print("Not found. Check if target exists or try dictionary attack.")
+    exit(0)
 
 
 def ssl_target_perim_summary(c_target, c_perim, iscontinuation=False):
@@ -186,9 +193,19 @@ if __name__ == '__main__':
     log_verbose(args)
 
     if args.interactive:
+        # Automatically exits program.
         interactive()
+
+    if args.target_list is not None:
+        targets = []
+        with open(args.target_list, 'r') as f:
+            for line in f.readlines():
+                targets.append(line.strip())
+        get_perimeter_list(targets)
+        exit(0)
+
+    if len(args.target) < 1:
+        print("Supply at least one target via flags or use interactive mode.")
     else:
-        if len(args.target) < 1:
-            print("Supply at least one target via flags or use interactive mode.")
-        else:
-            get_perimeter_list(args.target)
+        get_perimeter_list(args.target)
+        exit(0)
